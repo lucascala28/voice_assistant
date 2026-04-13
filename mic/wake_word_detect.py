@@ -1,8 +1,6 @@
-import openwakeword
 import numpy as np
 from openwakeword import Model
 
-openwakeword.utils.download_models()
 oww = Model(wakeword_models=["hey_mycroft"], inference_framework="onnx")
 
 def wake_word_detect(stream):
