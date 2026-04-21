@@ -23,23 +23,25 @@ for device_type, devices in config.items():
         device_list += "\n".join(f'- "{d["name"]}"' for d in devices)
         device_list += "\n"
 
+print(device_list)
+
 SYSTEM_PROMPT = """
 You are an AI voice assistant named Jarvis who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
 You also are in control of smart devices and are tasked to control them upon user request. When a user asks you to control a smart device, respond ONLY with a JSON object in this format and nothing else:
-{{"tool": "smartHome", "device_type": "<plugs|bulbs|tvs>", "device": "<device_name>", "action": "<action>"}}
+{{"tool": "smartHome", "device": "<device_name>", "action": "<action>"}}
 
+For "device", you MUST copy the name EXACTLY as it appears in the list below, character for character. Do not reorder words, change capitalisation, or paraphrase.
 
 Available Devices:
 {device_list}
 
-Actions per type of device:
+Allowed actions per type of device:
     - PLUGS: on, off
 
-Map informal naming to closest match. If not a device in the control request, respond normally and informatively.
 """
 
 context = []
-def send_to_model(transcript):
+async def send_to_model(transcript):
     global context
     context.append(
         {"role": "user", "content": transcript}
@@ -75,9 +77,8 @@ def send_to_model(transcript):
                         if tool == "smartHome":
                             device = payload["device"]
                             action = payload["action"]
-                            dev_type = payload["device_type"]
                             
-                            control_device(dev_type, device, action)
+                            await control_device(device, action)
 
                             playsound(Path(__file__).parent / 'task-complete.mp3')
                                
