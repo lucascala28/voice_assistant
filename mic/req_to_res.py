@@ -3,6 +3,11 @@ import requests
 from tts import speak
 import json
 import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+
+load_dotenv(Path(__file__).parent / ".env")
 
 MODEL = os.getenv("LLM_MODEL")
 HOST = os.getenv("LLM_HOST")
