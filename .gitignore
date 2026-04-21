@@ -4,6 +4,7 @@ venv/
 
 # enviroment settings
 .env/
+devices.json
 
 # python
 __pycache__/
