@@ -24,7 +24,7 @@ for device_type, devices in config.items():
         device_list += "\n"
 
 SYSTEM_PROMPT = """
-You are an AI voice assistant named mycroft who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
+You are an AI voice assistant named Jarvis who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
 You also are in control of smart devices and are tasked to control them upon user request. When a user asks you to control a smart device, respond ONLY with a JSON object in this format and nothing else:
 {{"tool": "smartHome", "device_type": "<plugs|bulbs|tvs>", "device": "<device_name>", "action": "<action>"}}
 
@@ -36,8 +36,8 @@ Actions per type of device:
     - PLUGS: on, off
 
 Map informal naming to closest match. If not a device in the control request, respond normally and informatively.
-
 """
+
 context = []
 def send_to_model(transcript):
     global context
