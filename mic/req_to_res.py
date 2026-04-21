@@ -2,7 +2,10 @@ from transcribe import collect_and_transcribe
 import requests
 from tts import speak
 import json
+import os
 
+MODEL = os.getenv("LLM_MODEL")
+HOST = os.getenv("LLM_HOST")
 
 SYSTEM_PROMPT = """
 You are an AI voice assistant named mycroft who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
@@ -16,9 +19,9 @@ def send_to_model(transcript):
     if len(context) > 40:
         context = context[2:]
     res = requests.post(
-        "http://localhost:1234/v1/chat/completions",
+        HOST,
         json={
-            "model": "qwen2.5-14b-instruct-1m",
+            "model": MODEL,
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *context],
             "temperature": 0.7,
             "stream": True

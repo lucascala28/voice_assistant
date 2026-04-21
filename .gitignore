@@ -2,6 +2,9 @@
 venv/
 .venv/
 
+# enviroment settings
+.env/
+
 # python
 __pycache__/
 *.pyc
