@@ -25,7 +25,7 @@ def resolve_device(name):
         raise(DeviceNotFoundError)
 
 async def control_device(device, action):
-    print("Control device tool invoked")
+    print(f"Control device tool invoked with parameters: device={device}, action={action}")
 
     deviceInfo = resolve_device(device)
 
