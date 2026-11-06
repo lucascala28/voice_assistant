@@ -1,12 +1,13 @@
 import tinytuya
 from kasa import SmartPlug
 import json
+import os
 from pathlib import Path
 
 class DeviceNotFoundError(Exception):
     pass
 
-with open(Path(__file__).parent / "devices.json") as f:
+with open(os.getenv("DEVICES_FILE") or Path(__file__).parent / "devices.json") as f:
     config = json.load(f)
 
 DEVICE_INDEX: dict[str, dict] = {}

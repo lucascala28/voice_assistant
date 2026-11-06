@@ -3,7 +3,9 @@ import numpy as np
 from kokoro import KPipeline
 import queue
 import threading
+import latency
 
+VOICE = "bm_lewis"
 pipeline = KPipeline(lang_code="a")
 _audio_queue = queue.Queue()
 _stop_event = threading.Event()
@@ -20,6 +22,7 @@ def playback_worker():
         
         _is_speaking = True
         sd.play(audio, samplerate=24000)
+        latency.mark("audio_playing")
         while sd.get_stream().active:
             if _stop_event.is_set():
                 sd.stop()
@@ -48,11 +51,19 @@ def stop_tts():
     if _worker_thread:
         _worker_thread.join(timeout=1)
 
+# Load the voice and synthesize one short phrase (audio discarded) so the first real reply is not cold.
+def warmup():
+    pipeline.load_voice(VOICE)
+    for _ in pipeline("Ready.", voice=VOICE, speed=1.0):
+        pass
+
+# Synthesize text with Kokoro (blocking) and queue the audio for the playback thread.
 def enqueue_tts(text):
-    generator = pipeline(text, voice="bm_lewis", speed=1.0)
+    generator = pipeline(text, voice=VOICE, speed=1.0)
     for _, _, audio in generator:
         if _stop_event.is_set():
             return
+        latency.mark("first_tts_audio_ready")
         _audio_queue.put(audio)
     
 def is_speaking():
