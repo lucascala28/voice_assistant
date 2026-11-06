@@ -1,6 +1,6 @@
 import requests
 from requests.exceptions import HTTPError
-from tts import speak
+from tts import enqueue_tts
 import json
 import os
 from dotenv import load_dotenv
@@ -29,7 +29,7 @@ for device_type, devices in config.items():
 print(device_list)
 
 SYSTEM_PROMPT = f"""
-You are an AI voice assistant named Jarvis who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
+You are an AI voice assistant named Beemo who responds in a TTS manner back to the user. Keep messages informative but concise, and able to be understood by someone who is only listening to you.
 
 Available devices:
 {device_list}
@@ -107,7 +107,7 @@ async def stream_and_speak(message):
                 line = line[6:]
             if line == "[DONE]":
                 if sentence_buffer.strip():
-                    speak(sentence_buffer)
+                    enqueue_tts(sentence_buffer)
                 break
             try:
                 chunk = json.loads(line)
@@ -115,7 +115,7 @@ async def stream_and_speak(message):
                 reply += token
                 sentence_buffer += token
                 if sentence_buffer.endswith((".", "?", "!")):
-                    speak(sentence_buffer.strip())
+                    enqueue_tts(sentence_buffer.strip())
                     sentence_buffer = ""
             except Exception as e:
                 print("Stream Error: ", e)
@@ -230,15 +230,18 @@ async def send_to_model(transcript):
 
                     
                     except DeviceNotFoundError:
-                        speak(f"Device not found amongst known devices")
+                        enqueue_tts("Device not found amongst known devices")
+                        context.append({"role": "tool", "tool_call_id": tool_call["id"], "content": "Device not found amongst known devices"})
                     except (json.JSONDecodeError, KeyError) as e:
-                        speak("There was an error calling the tool")
+                        enqueue_tts("There was an error calling the tool")
+                        context.append({"role": "tool", "tool_call_id": tool_call["id"], "content": "There was an error calling the tool"})
                     except (HTTPError) as e:
                         print(f"Weather API HTTP error: {e.response.status_code}")
-                        speak("There was a problem reaching the API")
+                        enqueue_tts("There was a problem reaching the API")
+                        context.append({"role": "tool", "tool_call_id": tool_call["id"], "content": "There was a problem reaching the API"})
 
                 elif sentence_buffer.strip():
-                    speak(sentence_buffer)
+                    enqueue_tts(sentence_buffer)
                 break
             try:
                 chunk = json.loads(line)
@@ -246,9 +249,6 @@ async def send_to_model(transcript):
 
                 if is_tool_call is None:
                     is_tool_call = "tool_calls" in delta
-                    if not is_tool_call and "content" in delta:
-                        preamble_buffer += delta.get("content", "")
-                        continue
 
                 
                 if is_tool_call:
@@ -265,7 +265,7 @@ async def send_to_model(transcript):
                 sentence_buffer += token
 
                 if sentence_buffer.endswith((".", "?", "!")):
-                    speak(sentence_buffer.strip())
+                    enqueue_tts(sentence_buffer.strip())
                     sentence_buffer = ""
             except Exception as e:
                 print("Stream Error: ", e)

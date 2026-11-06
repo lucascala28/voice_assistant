@@ -1,8 +1,10 @@
 import asyncio
 from transcribe import collect_and_transcribe
 from req_to_res import send_to_model
+from tts import start_tts
 
 async def main():
+    start_tts()
     for transcript in collect_and_transcribe():
         print(40*'-')
         print(f"Detected request:\n{transcript}\n")

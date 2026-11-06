@@ -19,7 +19,7 @@ def playback_worker():
             continue
         
         _is_speaking = True
-        sd.play(audio, samplerate=2400)
+        sd.play(audio, samplerate=24000)
         while sd.get_stream().active:
             if _stop_event.is_set():
                 sd.stop()
@@ -27,9 +27,8 @@ def playback_worker():
             
             threading.Event().wait(0.05)
         
+        _is_speaking = False
         _audio_queue.task_done()
-    
-    _is_speaking = False
 
 def start_tts():
     global _worker_thread
@@ -57,4 +56,4 @@ def enqueue_tts(text):
         _audio_queue.put(audio)
     
 def is_speaking():
-    return is_speaking or not _audio_queue.empty()
+    return _is_speaking or not _audio_queue.empty()
