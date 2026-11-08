@@ -1,0 +1,19 @@
+[
+  {"id": "greeting", "say": "Hi, who are you?",
+   "expect": {"tool": null, "device_actions": []}},
+  {"id": "lamp_on", "say": "Turn on the desk lamp.",
+   "expect": {"tool": "control_device", "device_actions": [{"device": "desk lamp", "action": "on"}]}},
+  {"id": "fan_off", "say": "Could you switch off the fan please?",
+   "expect": {"tool": "control_device", "device_actions": [{"device": "fan", "action": "off"}]}},
+  {"id": "unknown_device", "say": "Turn on the garage door.",
+   "expect": {"device_actions": []}},
+  {"id": "weather_city", "say": "What's the weather like in Denver right now?",
+   "expect": {"tool": "get_weather", "location_contains": "denver", "spoken_any": ["rain", "54", "degrees"]}},
+  {"id": "weather_unknown", "say": "What's the weather in Atlantis?",
+   "expect": {"device_actions": []}},
+  {"id": "audio_lamp_off", "mode": "audio", "say": "Turn off the desk lamp.",
+   "expect": {"transcript_contains": ["lamp"], "tool": "control_device",
+              "device_actions": [{"device": "desk lamp", "action": "off"}]}},
+  {"id": "audio_chat", "mode": "audio", "say": "Tell me a fun fact about octopuses.",
+   "expect": {"transcript_contains": ["octop"], "tool": null}}
+]

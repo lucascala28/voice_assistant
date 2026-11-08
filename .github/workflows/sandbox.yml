@@ -1,0 +1,49 @@
+# End-to-end sandbox test of the voice assistant (real LLM, Kokoro TTS and Whisper STT; mic, speakers, plugs faked).
+#
+# Runs on a self-hosted runner because GitHub-hosted runners cannot reach the local LM Studio server and have no
+# Kokoro/Whisper models cached. Runner prerequisites:
+#   - `uv` on the runner user's PATH
+#   - Kokoro and Whisper models already cached for the runner user (first run downloads them otherwise)
+#   - LM Studio reachable at LLM_HOST with LLM_MODEL loaded
+#   - data/beemo.onnx is NOT needed (the wake word is faked)
+# Configure LLM_HOST, LLM_MODEL and CITY as repository variables (or secrets). No .env is needed: exported variables
+# take precedence and a missing .env is skipped.
+name: sandbox
+
+on:
+  push:
+    branches: [master]   # pull_request covers every other branch
+  pull_request:
+
+permissions:
+  contents: read
+
+# One run at a time: runs share the cached venv and the single LM Studio instance.
+# Runs waiting in the queue may show as cancelled when a newer one replaces them.
+concurrency:
+  group: sandbox
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    # Fork PRs must never run on the self-hosted LAN machine.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted]
+    timeout-minutes: 45
+    env:
+      LLM_HOST: ${{ vars.LLM_HOST || secrets.LLM_HOST }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
+      CITY: ${{ vars.CITY || secrets.CITY }}
+    steps:
+      - uses: actions/checkout@v4
+      # GITHUB_SHA is the merge commit for pull_request runs, so this tests the PR as it would land.
+      - name: Run sandbox
+        run: sandbox/run.sh --ref "$GITHUB_SHA"
+      - name: Upload report and recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-last
+          path: .sandbox-last/
+          include-hidden-files: true
+          if-no-files-found: ignore

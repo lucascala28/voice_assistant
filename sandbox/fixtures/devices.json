@@ -1,0 +1,6 @@
+{
+  "plugs": [
+    {"name": "desk lamp", "type": "kasa", "ip": "192.0.2.10"},
+    {"name": "fan", "type": "tuya", "ip": "192.0.2.11", "dev_id": "sandbox-fan", "local_key": "sandbox", "version": 3.3}
+  ]
+}

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Pre-push gate: the voice-sandbox-tester agent runs the end-to-end sandbox on each commit being pushed and must report PASS.
+# Enable once per clone:  git config core.hooksPath .githooks
+# Skip for one push:      SKIP_SANDBOX=1 git push   (or git push --no-verify)
+# Allow pushing when the LLM server is down: SANDBOX_ALLOW_BLOCKED=1
+# Time limit for each run in seconds: SANDBOX_TIMEOUT (default 1800). Fails closed: any error, timeout or missing verdict blocks.
+# Without the claude CLI the sandbox is run directly (sandbox/run.sh --ref <sha>) and its exit code decides.
+# Written for bash 3.2 (macOS default).
+[[ "${SKIP_SANDBOX:-0}" == 1 ]] && exit 0
+cd "$(git rev-parse --show-toplevel)" || exit 1
+set -o pipefail
+
+LIMIT="${SANDBOX_TIMEOUT:-1800}"
+# Collect the distinct commits being pushed from stdin lines "<local ref> <local sha> <remote ref> <remote sha>", skipping deletions.
+shas=" "
+while read -r lref lsha rref rsha || [[ -n "$lsha" ]]; do
+  [[ -z "$lsha" || "$lsha" =~ ^0+$ ]] && continue
+  case "$shas" in *" $lsha "*) ;; *) shas="$shas$lsha " ;; esac
+done
+[[ "$shas" == " " ]] && exit 0
+
+LOG="$(mktemp "${TMPDIR:-/tmp}/beemo-prepush.XXXXXX")"
+MARK="$LOG.timeout"
+trap 'rm -f "$MARK"' EXIT
+
+# Run a command with output teed to $LOG, killing its whole process group after $LIMIT seconds or on Ctrl-C/TERM/HUP.
+# Returns the command's exit code; a timeout is flagged by the existence of $MARK.
+run_limited() {
+  rm -f "$MARK"
+  # Own process group (set -m): a terminal SIGINT would not reach it, hence the trap that forwards the signal.
+  set -m
+  ( "$@" < /dev/null 2>&1 | tee "$LOG" ) &
+  pid=$!
+  set +m
+  (
+    t=0
+    while (( t < LIMIT )) && kill -0 "$pid" 2>/dev/null; do /bin/sleep 1 >/dev/null 2>&1; t=$((t + 1)); done
+    if kill -0 "$pid" 2>/dev/null; then
+      touch "$MARK"
+      kill -TERM -- "-$pid" 2>/dev/null
+      /bin/sleep 2 >/dev/null 2>&1
+      kill -KILL -- "-$pid" 2>/dev/null
+    fi
+  ) &
+  wd=$!
+  trap 'kill -TERM -- "-$pid" 2>/dev/null; kill "$wd" 2>/dev/null; exit 130' INT TERM HUP
+  wait "$pid"
+  local rc=$?
+  trap - INT TERM HUP
+  kill "$wd" 2>/dev/null
+  wait "$wd" 2>/dev/null
+  return $rc
+}
+
+for sha in $shas; do
+  if command -v claude >/dev/null; then
+    echo "pre-push: running voice-sandbox-tester on $sha (log: $LOG, limit ${LIMIT}s)"
+    # The prompt must come before --allowedTools, which is variadic and would swallow it
+    run_limited claude -p "Sandbox-test commit $sha, which is about to be pushed (use sandbox/run.sh --ref $sha), and report." \
+      --agent voice-sandbox-tester \
+      --allowedTools "Bash(sandbox/run.sh:*),Bash(git log:*),Bash(git diff:*),Read,Grep,Glob"
+    rc=$?
+    if [[ -f "$MARK" ]]; then echo "pre-push: sandbox test timed out after ${LIMIT}s; push aborted"; exit 1; fi
+    if (( rc != 0 )); then echo "pre-push: claude exited with status $rc; push aborted (SKIP_SANDBOX=1 to override)"; exit 1; fi
+    case "$(grep -o 'SANDBOX_RESULT: [A-Z]*' "$LOG" | tail -1)" in
+      "SANDBOX_RESULT: PASS") ;;
+      "SANDBOX_RESULT: BLOCKED")
+        if [[ "${SANDBOX_ALLOW_BLOCKED:-0}" == 1 ]]; then echo "pre-push: sandbox blocked, pushing anyway"
+        else echo "pre-push: sandbox could not run; fix the environment or set SANDBOX_ALLOW_BLOCKED=1"; exit 1; fi ;;
+      "SANDBOX_RESULT: FAIL") echo "pre-push: sandbox test failed; push aborted (SKIP_SANDBOX=1 to override)"; exit 1 ;;
+      *) echo "pre-push: no SANDBOX_RESULT verdict from the agent; push aborted"; exit 1 ;;
+    esac
+  else
+    echo "pre-push: claude CLI not found, running the sandbox directly on $sha"
+    run_limited sandbox/run.sh --ref "$sha"
+    rc=$?
+    if [[ -f "$MARK" ]]; then echo "pre-push: sandbox test timed out after ${LIMIT}s; push aborted"; exit 1; fi
+    case $rc in
+      0) ;;
+      2)
+        if [[ "${SANDBOX_ALLOW_BLOCKED:-0}" == 1 ]]; then echo "pre-push: sandbox blocked, pushing anyway"
+        else echo "pre-push: sandbox could not run; fix the environment or set SANDBOX_ALLOW_BLOCKED=1"; exit 1; fi ;;
+      *) echo "pre-push: sandbox test failed; push aborted (SKIP_SANDBOX=1 to override)"; exit 1 ;;
+    esac
+  fi
+done
+exit 0

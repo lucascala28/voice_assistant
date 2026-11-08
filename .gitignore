@@ -27,3 +27,10 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# sandbox test output
+.sandbox-last/
+!sandbox/fixtures/devices.json
+
+# local explainer for the sandbox tester (not committed)
+sandbox-explainer.html
